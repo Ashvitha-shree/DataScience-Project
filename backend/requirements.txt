@@ -1,0 +1,42 @@
+# Core backend
+fastapi>=0.104
+uvicorn[standard]>=0.24
+pydantic[email]>=2.4
+python-dotenv>=1.0
+python-multipart>=0.0.6
+
+# Database
+sqlalchemy>=2.0
+pymysql>=1.1
+cryptography>=41.0          # required by PyMySQL for some MySQL auth plugins
+
+# Auth
+pyjwt>=2.8
+
+# Machine Learning
+scikit-learn>=1.3
+joblib>=1.3
+numpy>=1.24
+pandas>=2.0
+
+# Deep Learning (optional - LSTM forecasting; project runs without it,
+# dl_module reports a clear message if missing)
+tensorflow>=2.13
+
+# NLP (optional - incident extraction falls back to keyword matching
+# without spaCy/the language model installed)
+spacy>=3.7
+# After installing spacy, run: python -m spacy download en_core_web_sm
+
+# SLM (optional - alert generation falls back to templates without these)
+transformers>=4.35
+torch>=2.0
+
+# Plotting (ML evaluation plots)
+matplotlib>=3.7
+
+# PDF reports
+reportlab>=4.0
+
+# Utilities
+requests>=2.31
