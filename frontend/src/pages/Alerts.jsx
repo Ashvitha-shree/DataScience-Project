@@ -48,20 +48,23 @@ export default function Alerts() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
-          <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
-            <MessageSquareText size={18} /> Generate Commuter Alert
-          </h2>
-          <div className="flex gap-2 mb-4">
-            <select className="input-field" value={selectedIncident} onChange={(e) => setSelectedIncident(e.target.value)}>
-              <option value="">Select an incident...</option>
-              {incidents.map((i) => (
-                <option key={i.incident_id} value={i.incident_id}>
-                  #{i.incident_id} - {i.incident_type} ({i.severity}) - {i.raw_text.slice(0, 40)}...
-                </option>
-              ))}
-            </select>
-            <button className="btn-primary whitespace-nowrap" onClick={handleGenerateAlert}>Generate</button>
-          </div>
+      <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+  <MessageSquareText size={18} /> Generate Commuter Alert
+</h2>
+<div className="flex gap-2 mb-4 flex-wrap">
+  <select className="input-field flex-1" value={selectedIncident} onChange={(e) => setSelectedIncident(e.target.value)}>
+    <option value="">Select an incident...</option>
+    {incidents.map((i) => (
+      <option key={i.incident_id} value={i.incident_id}>
+        #{i.incident_id} - {i.incident_type} ({i.severity}) - {i.raw_text.slice(0, 40)}...
+      </option>
+    ))}
+  </select>
+  <button className="btn-secondary whitespace-nowrap" onClick={load} title="Refresh incident list">
+    ↻ Refresh
+  </button>
+  <button className="btn-primary whitespace-nowrap" onClick={handleGenerateAlert}>Generate</button>
+</div>
           <ul className="space-y-2 max-h-72 overflow-y-auto">
             {alerts.map((a) => (
               <li key={a.alert_id} className="text-sm border-b border-slate-100 dark:border-slate-700 pb-2 text-slate-600 dark:text-slate-300">

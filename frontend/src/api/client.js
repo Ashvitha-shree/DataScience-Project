@@ -75,5 +75,6 @@ export const runAgent = (roadId, trafficId, incidentId) =>
 // ---- Reports ----
 export const downloadReport = (type) =>
   client.get("/reports/", { params: { report_type: type }, responseType: "blob" });
-
+export const getLstmForecast = (roadId) =>         
+  client.get("/prediction/lstm-forecast", { params: { road_id: roadId } });
 export default client;

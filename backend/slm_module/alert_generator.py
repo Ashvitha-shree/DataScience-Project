@@ -49,50 +49,116 @@ def _load_model():
 
 
 ACTION_TEMPLATES = {
-    "accident": "Avoid the area, expect delays",
-    "roadwork": "Use an alternate route, lane closures in effect",
-    "breakdown": "Slow down, a vehicle is on the shoulder",
-    "flooding": "Avoid this stretch, road may be impassable",
-    "protest": "Expect diversions, plan extra travel time",
-    "signal_failure": "Proceed with caution, signal is not working",
-    "pothole": "Reduce speed, road surface is damaged",
-    "other": "Proceed with caution",
+    "accident": lambda road, severity, congestion:
+        f"Accident reported on {road}. {severity.capitalize()} severity. Expect {congestion} congestion. Please use alternate routes.",
+
+    "roadwork": lambda road, severity, congestion:
+        f"Roadwork in progress on {road}. Drive carefully and expect minor delays.",
+
+    "breakdown": lambda road, severity, congestion:
+        f"Vehicle breakdown on {road}. Traffic is moving slowly. Please proceed with caution.",
+
+    "flooding": lambda road, severity, congestion:
+        f"Flooding reported on {road}. Avoid this route and follow traffic diversions.",
+
+    "signal_failure": lambda road, severity, congestion:
+        f"Traffic signal failure on {road}. Drive cautiously and obey traffic police instructions.",
+
+    "protest": lambda road, severity, congestion:
+        f"Traffic disruption due to a protest on {road}. Use alternate routes and expect delays.",
+
+    "pothole": lambda road, severity, congestion:
+        f"Road damage reported on {road}. Reduce speed and drive carefully.",
+
+    "other": lambda road, severity, congestion:
+        f"Traffic incident reported on {road}. Please drive carefully."
 }
 
 
 def _template_fallback(road_name, incident_type, severity, congestion_level=None):
-    action = ACTION_TEMPLATES.get(incident_type, ACTION_TEMPLATES["other"])
-    road_disp = road_name or "the reported area"
-    delay = {"low": "5", "medium": "15", "high": "25", "critical": "40+"}.get(severity, "15")
-    extra = f" Expected delay: {delay} minutes." if incident_type != "other" else ""
-    congestion_note = f" Current congestion: {congestion_level}." if congestion_level else ""
-    return f"{action} near {road_disp}.{congestion_note}{extra}"
+    road = road_name or "the reported area"
+    congestion = congestion_level or "moderate"
 
+    generator = ACTION_TEMPLATES.get(
+        incident_type,
+        ACTION_TEMPLATES["other"]
+    )
 
+    return generator(
+        road,
+        severity,
+        congestion
+    )
 def generate_alert(road_name, incident_type, severity, congestion_level=None):
-    """Generates a short commuter alert. Uses FLAN-T5 Small if installed,
-    otherwise a clear rule-based template (same information content)."""
+    """Generates a short commuter alert."""
     if TRANSFORMERS_AVAILABLE:
         try:
             tokenizer, model = _load_model()
-            prompt = (
-                f"Write a short traffic alert for commuters. "
-                f"Road: {road_name or 'unknown road'}. "
-                f"Incident: {incident_type}. Severity: {severity}. "
-                f"Current congestion: {congestion_level or 'unknown'}. "
-                f"Suggest an alternate action."
+
+            prompt = f"""
+Generate a traffic alert like the example.
+
+Example:
+Road: Anna Salai
+Incident: accident
+Severity: high
+Congestion: heavy
+
+Alert:
+Avoid the area, expect delays near Anna Salai. Expected delay: 25 minutes.
+
+Now generate an alert.
+
+Road: {road_name or "Unknown Road"}
+Incident: {incident_type}
+Severity: {severity}
+Congestion: {congestion_level or "moderate"}
+
+Alert:
+"""
+
+            inputs = tokenizer(
+                prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=128
             )
-            inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
-            output_ids = model.generate(**inputs, max_length=48, num_beams=2)
-            text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-            if text.strip():
-                return text.strip()
+
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=32,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.2,
+                no_repeat_ngram_size=2
+            )
+
+            text = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+
+            road = (road_name or "").lower()
+
+            valid = (
+                road in text.lower()
+                or incident_type.lower() in text.lower()
+                or "delay" in text.lower()
+                or "traffic" in text.lower()
+            )
+
+            if valid:
+                return text
+
+            print("Poor FLAN output, using template.")
+
         except Exception as e:
             print(f"FLAN-T5 generation failed ({e}); using template fallback.")
 
-    return _template_fallback(road_name, incident_type, severity, congestion_level)
-
-
+    return _template_fallback(
+        road_name,
+        incident_type,
+        severity,
+        congestion_level
+    )
 # ------------------------------------------------------------------
 # OPTIONAL: fine-tuning sketch (not run automatically - for students who
 # want to go further). Build (prompt, target_alert) pairs from your own

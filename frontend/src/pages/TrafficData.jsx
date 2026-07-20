@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Upload, Download, Sparkles } from "lucide-react";
+import { getLstmForecast } from "../api/client.js";
 import {
   getRoads, getTrafficData, createTrafficData, uploadTrafficCsv,
   downloadTrafficCsv, getPrediction, trainModel,
@@ -20,7 +21,9 @@ export default function TrafficData() {
   const [showForm, setShowForm] = useState(false);
   const [predictions, setPredictions] = useState({});
   const [trainMsg, setTrainMsg] = useState("");
-
+  const [lstmForecast, setLstmForecast] = useState(null);      
+const [lstmRoadId, setLstmRoadId] = useState("");            
+const [lstmLoading, setLstmLoading] = useState(false); 
   const load = async () => {
     const [r, t] = await Promise.all([getRoads(), getTrafficData({ limit: 50 })]);
     setRoads(r.data);
@@ -66,7 +69,19 @@ export default function TrafficData() {
     const res = await trainModel();
     setTrainMsg(`Accuracy: ${(res.data.accuracy * 100).toFixed(2)}% | F1: ${(res.data.f1_score * 100).toFixed(2)}%`);
   };
-
+const handleLstmForecast = async () => {       // ← ADD FROM HERE
+  if (!lstmRoadId) return;
+  setLstmLoading(true);
+  setLstmForecast(null);
+  try {
+    const res = await getLstmForecast(parseInt(lstmRoadId));
+    setLstmForecast(res.data);
+  } catch (e) {
+    alert(e.response?.data?.detail || "LSTM forecast failed.");
+  } finally {
+    setLstmLoading(false);
+  }
+}; 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
@@ -96,7 +111,65 @@ export default function TrafficData() {
           Random Forest Training Result: {trainMsg}
         </div>
       )}
+       <div className="card">
+        <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">
+          🧠 LSTM Traffic Speed Forecast (30 Minutes Ahead)
+        </h2>
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <select
+            className="input-field max-w-xs"
+            value={lstmRoadId}
+            onChange={(e) => setLstmRoadId(e.target.value)}
+          >
+            <option value="">Select a road to forecast...</option>
+            {roads.map((r) => (
+              <option key={r.road_id} value={r.road_id}>{r.road_name}</option>
+            ))}
+          </select>
+          <button
+            className="btn-primary"
+            onClick={handleLstmForecast}
+            disabled={lstmLoading}
+          >
+            {lstmLoading ? "Forecasting..." : "Predict Next 30 Min"}
+          </button>
+        </div>
 
+        {lstmForecast && (
+          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Current Speed</div>
+              <div className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                {lstmForecast.current_speed_kmph} km/h
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Predicted in 30 min</div>
+              <div className="text-xl font-bold text-primary-600">
+                {lstmForecast.predicted_speed_30min_kmph} km/h
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Traffic Trend</div>
+              <div className={`text-lg font-semibold capitalize ${
+                lstmForecast.trend === "worsening" ? "text-red-500" :
+                lstmForecast.trend === "improving" ? "text-green-500" :
+                "text-amber-500"
+              }`}>
+                {lstmForecast.trend === "worsening" ? "↓ Worsening" :
+                 lstmForecast.trend === "improving" ? "↑ Improving" :
+                 "→ Stable"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Advice</div>
+              <div className="text-sm text-slate-600 dark:text-slate-300">
+                {lstmForecast.advice}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       {showForm && (
         <form onSubmit={handleSubmit} className="card grid grid-cols-1 md:grid-cols-4 gap-4">
           <select className="input-field" required value={form.road_id}

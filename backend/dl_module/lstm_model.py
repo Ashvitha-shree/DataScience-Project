@@ -51,7 +51,7 @@ def build_lstm_model(seq_len=SEQ_LEN, n_features=2, units=32):
         layers.Dense(16, activation="relu"),
         layers.Dense(1, activation="linear"),
     ])
-    model.compile(optimizer="adam", loss="mse", metrics=["mae"])
+    model.compile(optimizer="adam", loss="mse")
     return model
 
 
@@ -77,7 +77,10 @@ def train_lstm(csv_path="dataset/sample_traffic_data.csv", model_path=None, epoc
     )
 
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    model_path = model_path.replace(".h5", ".keras")
     model.save(model_path)
+    print(f"LSTM model saved -> {model_path}")
+  
 
     y_pred = model.predict(X_val).flatten()
     val_mae = float(np.mean(np.abs(y_pred - y_val)))
@@ -97,10 +100,21 @@ def load_lstm(model_path=None):
     if not TF_AVAILABLE:
         raise ImportError("TensorFlow not installed.")
     model_path = model_path or settings.LSTM_MODEL_PATH
+    # Support both .keras (new) and .h5 (old) formats
+    keras_path = model_path.replace(".h5", ".keras")
     if _lstm_cache is None:
-        _lstm_cache = tf.keras.models.load_model(model_path)
+        import os
+        if os.path.exists(keras_path):
+            _lstm_cache = tf.keras.models.load_model(keras_path)
+        elif os.path.exists(model_path):
+            _lstm_cache = tf.keras.models.load_model(
+                model_path, compile=False
+            )
+        else:
+            raise FileNotFoundError(
+                f"No trained LSTM model found. Run: python -m dl_module.lstm_model"
+            )
     return _lstm_cache
-
 
 def predict_next_speed(recent_readings):
     """recent_readings: list of [avg_speed, vehicle_count] for the last
